@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+
+import rospy
+import numpy as np
+from std_msgs.msg import String
+import socket
+from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Quaternion, Point, Pose, PoseStamped
+
+class RtkQualityPublisher(class):
+	
+	def __init__(self):
+		
+		rospy.init_node('rtklib_publisher')
+		
+		self.static_pub = rospy.Publisher('static_quality', NavSatFix)
+		self.rtkStatic_pub = rospy.Publisher('rtk_static_quality', NavSatFix)
+		self.rtkDynamic_pub = rospy.Publisher('rtk_dynamic_quality', NavSatFix)
+		
+		rospy.Subscriber('static', NavSatFix, self.compute_quality)
+		rospy.Subscriber('rtk_static', NavSatFix, self.compute_quality)
+		rospy.Subscriber('rtk_dynamic', NavSatFix, self.compute_quality)
+		
+	def compute_quality(self,data):
+		
+		cov = data.position_covariance
+		
+		SEP = 0.51*(cov[0]+cov[3]+cov[6])
+		
+		MRSE = np.sqrt(cov[0]*cov[0]+cov[3]*cov[3]+cov[6]*cov[6])
+		
+		SHS90 = 0.833*(cov[0]+cov[3]+cov[6])
+		SHS99 = 1.122*(cov[0]+cov[3]+cov[6])

@@ -1,0 +1,8 @@
+prefix=/home/doopy/Documents/sockets/socketROS/devel
+
+Name: ROSsocket1
+Description: Description of ROSsocket1
+Version: 0.0.0
+Cflags: -I/home/doopy/Documents/sockets/socketROS/devel/include
+Libs: -L/home/doopy/Documents/sockets/socketROS/devel/lib 
+Requires: message_runtime

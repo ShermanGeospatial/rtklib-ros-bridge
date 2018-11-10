@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+
+import rospy
+import numpy as np
+from std_msgs.msg import String
+import socket
+from sensor_msgs.msg import Imu, NavSatFix, NavSatStatus
+from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Quaternion, Point, Pose, PoseStamped
+from ROSsocket1.msg import rtklib
+
+class RtklibPublisher(object):
+	
+	def __init__(self):
+		
+		rospy.init_node('rtklib_publisher')
+		
+		self.static_pub = rospy.Publisher('static', NavSatFix)
+		self.rtkStatic_pub = rospy.Publisher('rtk_static', NavSatFix)
+		self.rtkDynamic_pub = rospy.Publisher('rtk_dynamic', NavSatFix)
+		self.rtkCustom_pub = rospy.Publisher('rtk_custom', rtklib)
+		
+		self.callback()
+		
+	def callback(self):
+		
+		rate = rospy.Rate(10)
+		ports = [5801,5802,5803]
+		sockets = []
+		pubs = [self.static_pub, self.rtkStatic_pub, self.rtkDynamic_pub]
+		
+		for i in ports:
+			
+			sock = socket.socket()
+			host = socket.gethostname()
+			sock.connect((host, i))
+			sockets.append(sock)
+			
+			e2 = 6.69437999014e-3
+			a = 6378137.0
+			
+		while not rospy.is_shutdown():
+			
+			for i in range(len(sockets)):
+				
+				
+				navsat = NavSatFix()
+				ecef_xyz = Point()
+				ecef_pose = Pose()
+				#ecef_stampedPose = PoseStamped()
+				
+				navsat.header.stamp = rospy.Time.now()
+					
+				#Get the position message from the RTKRCV server
+				msgStr = sockets[i].recv(1024)
+			
+				#Split the message
+				msg = msgStr.split()
+				
+				navsat.latitude = float(msg[2])
+				navsat.longitude = float(msg[3])
+				navsat.altitude = float(msg[4])
+				navsat.position_covariance = [float(msg[7]),float(msg[10]),float(msg[12]),float(msg[10]),float(msg[8]),float(msg[11]),float(msg[12]),float(msg[11]),float(msg[9])]
+				navsat.position_covariance_type = NavSatFix.COVARIANCE_TYPE_KNOWN
+				
+				N = 1.0*a/np.sqrt(1-e2*(np.sin(float(msg[2])*np.pi/180.0)**2))
+				
+				ecef_xyz.x = (N+float(msg[4]))*np.cos(float(msg[2])*np.pi/180.0)*np.cos(float(msg[3])*np.pi/180.0)
+				ecef_xyz.y = (N+float(msg[4]))*np.cos(float(msg[2])*np.pi/180.0)*np.sin(float(msg[3])*np.pi/180.0)
+				ecef_xyz.z = (N*(1-e2)+float(msg[4]))*np.sin(float(msg[2])*np.pi/180.0)
+				
+				ecef_pose.position = ecef_xyz
+				#ecef_stampedPose.pose = ecef_pose
+				
+				pubs[i].publish(navsat)
+				
+			rate.sleep()
+
+if __name__ == '__main__':
+	
+	node = RtklibPublisher()
+	rospy.spin()
